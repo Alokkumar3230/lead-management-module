@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead Management Module</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-start justify-center p-4 sm:p-8">
+
+    <div class="max-w-4xl w-full">
+
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl sm:text-5xl font-bold text-gray-800 tracking-tight">Lead Management</h1>
+            <p class="text-gray-500 mt-2">Capture, view, and manage your sales leads with ease.</p>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+            <!-- Lead Capture Form -->
+            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-gray-200">
+                <h2 class="text-xl sm:text-2xl font-bold text-gray-800 mb-6">Add New Lead</h2>
+                <form id="leadForm" class="space-y-4">
+                    <div>
+                        <label for="leadName" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <input type="text" id="leadName" name="name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200" required>
+                        <p class="text-red-500 text-sm mt-1 hidden" id="nameError">Name is required.</p>
+                    </div>
+                    <div>
+                        <label for="leadEmail" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                        <input type="email" id="leadEmail" name="email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200" required>
+                        <p class="text-red-500 text-sm mt-1 hidden" id="emailError">Please enter a valid email address.</p>
+                    </div>
+                    <div>
+                        <label for="leadPhone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number (Optional)</label>
+                        <input type="tel" id="leadPhone" name="phone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Add Lead</button>
+                    <button type="button" id="updateBtn" class="w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 hidden">Update Lead</button>
+                </form>
+            </div>
+
+            <!-- Lead List -->
+            <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-gray-200">
+                <h2 class="text-xl sm:text-2xl font-bold text-gray-800 mb-6">Lead List</h2>
+                <div id="leadsContainer" class="space-y-4">
+                    <!-- Leads will be rendered here -->
+                    <p class="text-center text-gray-500 italic" id="noLeadsMsg">No leads added yet. Add some leads to get started!</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Custom Alert Modal -->
+        <div id="alertModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center p-4">
+            <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full text-center">
+                <p id="alertMessage" class="text-gray-800 font-medium mb-4"></p>
+                <button onclick="document.getElementById('alertModal').classList.add('hidden')" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for form state
+        let leads = [];
+        let editingLeadId = null;
+
+        // Utility function to display a custom alert message
+        function showAlert(message) {
+            const modal = document.getElementById('alertModal');
+            document.getElementById('alertMessage').textContent = message;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        // DOM elements
+        const form = document.getElementById('leadForm');
+        const leadsContainer = document.getElementById('leadsContainer');
+        const noLeadsMsg = document.getElementById('noLeadsMsg');
+        const nameInput = document.getElementById('leadName');
+        const emailInput = document.getElementById('leadEmail');
+        const phoneInput = document.getElementById('leadPhone');
+        const updateBtn = document.getElementById('updateBtn');
+        const addBtn = form.querySelector('button[type="submit"]');
+
+        // Function to save leads to localStorage (simulating API call)
+        function saveLeadsToLocalStorage() {
+            try {
+                localStorage.setItem('leads', JSON.stringify(leads));
+            } catch (e) {
+                console.error("Could not save to localStorage:", e);
+            }
+        }
+
+        // Function to load leads from localStorage
+        function loadLeadsFromLocalStorage() {
+            try {
+                const storedLeads = localStorage.getItem('leads');
+                if (storedLeads) {
+                    leads = JSON.parse(storedLeads);
+                }
+            } catch (e) {
+                console.error("Could not load from localStorage:", e);
+            }
+        }
+
+        // Function to render the lead list
+        function renderLeads() {
+            leadsContainer.innerHTML = '';
+            if (leads.length === 0) {
+                noLeadsMsg.classList.remove('hidden');
+                return;
+            } else {
+                noLeadsMsg.classList.add('hidden');
+            }
+
+            // Create a lead card for each lead
+            leads.forEach(lead => {
+                const leadCard = document.createElement('div');
+                leadCard.className = 'bg-gray-50 p-4 rounded-xl shadow-inner border border-gray-200 transition-all duration-200 hover:shadow-md';
+                leadCard.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-bold text-gray-800 text-lg">${lead.name}</h3>
+                        <div class="flex space-x-2">
+                            <button onclick="editLead('${lead.id}')" class="text-blue-500 hover:text-blue-700 transition-colors duration-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                </svg>
+                            </button>
+                            <button onclick="deleteLead('${lead.id}')" class="text-red-500 hover:text-red-700 transition-colors duration-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 break-words">Email: ${lead.email}</p>
+                    <p class="text-sm text-gray-600">Phone: ${lead.phone || 'N/A'}</p>
+                `;
+                leadsContainer.appendChild(leadCard);
+            });
+        }
+
+        // Function to validate the form
+        function validateForm(name, email) {
+            let isValid = true;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            if (!name.trim()) {
+                document.getElementById('nameError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('nameError').classList.add('hidden');
+            }
+
+            if (!email.trim() || !emailRegex.test(email)) {
+                document.getElementById('emailError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('emailError').classList.add('hidden');
+            }
+
+            return isValid;
+        }
+
+        // Function to handle form submission (Add or Update)
+        function handleFormSubmit(event) {
+            event.preventDefault();
+
+            const name = nameInput.value;
+            const email = emailInput.value;
+            const phone = phoneInput.value;
+
+            if (!validateForm(name, email)) {
+                return;
+            }
+
+            if (editingLeadId) {
+                // Update existing lead
+                const leadToUpdate = leads.find(lead => lead.id === editingLeadId);
+                if (leadToUpdate) {
+                    leadToUpdate.name = name;
+                    leadToUpdate.email = email;
+                    leadToUpdate.phone = phone;
+                    showAlert('Lead updated successfully!');
+                }
+                // Reset state
+                editingLeadId = null;
+                updateBtn.classList.add('hidden');
+                addBtn.classList.remove('hidden');
+            } else {
+                // Add new lead
+                const newLead = {
+                    id: Date.now().toString(),
+                    name: name,
+                    email: email,
+                    phone: phone
+                };
+                leads.push(newLead);
+                showAlert('New lead added successfully!');
+            }
+
+            form.reset();
+            saveLeadsToLocalStorage();
+            renderLeads();
+        }
+
+        // Function to handle the edit button click
+        function editLead(id) {
+            const leadToEdit = leads.find(lead => lead.id === id);
+            if (leadToEdit) {
+                nameInput.value = leadToEdit.name;
+                emailInput.value = leadToEdit.email;
+                phoneInput.value = leadToEdit.phone;
+                editingLeadId = id;
+
+                addBtn.classList.add('hidden');
+                updateBtn.classList.remove('hidden');
+
+                // Scroll to the top of the form for better UX
+                form.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Function to handle the delete button click
+        function deleteLead(id) {
+            const originalLength = leads.length;
+            leads = leads.filter(lead => lead.id !== id);
+            if (leads.length < originalLength) {
+                showAlert('Lead deleted successfully!');
+                saveLeadsToLocalStorage();
+                renderLeads();
+            }
+        }
+
+        // Event listener for form submission
+        form.addEventListener('submit', handleFormSubmit);
+
+        // Initial load
+        window.onload = () => {
+            loadLeadsFromLocalStorage();
+            renderLeads();
+        };
+
+    </script>
+
+</body>
+</html>
